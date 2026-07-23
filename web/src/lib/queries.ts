@@ -17,6 +17,7 @@ export async function ensureSchema(): Promise<void> {
       total_transaction_value NUMERIC(15, 2),
       market VARCHAR(5) DEFAULT 'US',
       currency VARCHAR(5) DEFAULT 'USD',
+      source_url TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       CONSTRAINT unique_transaction UNIQUE (ticker, filing_date, insider_name, shares_traded, price_per_share)
     )
@@ -24,6 +25,7 @@ export async function ensureSchema(): Promise<void> {
   await sql`ALTER TABLE insider_trades ALTER COLUMN ticker TYPE VARCHAR(20)`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS market VARCHAR(5) DEFAULT 'US'`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS currency VARCHAR(5) DEFAULT 'USD'`;
+  await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS source_url TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS idx_insider_trades_ticker ON insider_trades (ticker)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_insider_trades_filing_date ON insider_trades (filing_date DESC)`;
 }
@@ -42,12 +44,13 @@ export async function insertTrades(
   for (const trade of trades) {
     const tradeMarket = trade.market ?? market;
     const tradeCurrency = trade.currency ?? currency;
+    const sourceUrl = trade.sourceUrl ?? null;
 
     const result = await sql`
       INSERT INTO insider_trades (
         ticker, filing_date, insider_name, executive_role,
         trade_type, shares_traded, price_per_share, total_transaction_value,
-        market, currency
+        market, currency, source_url
       )
       VALUES (
         ${ticker},
@@ -59,7 +62,8 @@ export async function insertTrades(
         ${trade.pricePerShare},
         ${trade.totalTransactionValue},
         ${tradeMarket},
-        ${tradeCurrency}
+        ${tradeCurrency},
+        ${sourceUrl}
       )
       ON CONFLICT ON CONSTRAINT unique_transaction DO NOTHING
       RETURNING trade_id
@@ -77,7 +81,7 @@ export async function getTradesByTicker(ticker: string): Promise<InsiderTrade[]>
     SELECT
       trade_id, ticker, filing_date::text, insider_name, executive_role,
       trade_type, shares_traded, price_per_share, total_transaction_value,
-      market, currency, created_at::text
+      market, currency, source_url, created_at::text
     FROM insider_trades
     WHERE ticker = ${ticker.toUpperCase()}
     ORDER BY filing_date DESC, trade_id DESC

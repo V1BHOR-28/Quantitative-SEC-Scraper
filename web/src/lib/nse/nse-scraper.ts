@@ -16,34 +16,46 @@ export async function scrapeNseSymbol(symbol: string): Promise<{
   const parsedTrades: ParsedTrade[] = [];
 
   for (const record of rawRecords) {
-    const isSell =
-      record.action.toLowerCase().includes("sale") ||
-      record.action.toLowerCase().includes("sell") ||
-      record.action.toLowerCase().includes("disposal");
+    const actStr = record.action.toLowerCase();
+    const isSell = actStr.includes("sale") || actStr.includes("sell") || actStr.includes("disposal");
 
     const tradeType = isSell ? "SELL" : "BUY";
-    const sharesTraded = record.secAcq || 1000;
-    const totalTransactionValue = record.secVal || record.tdpVal || 100000;
-    const pricePerShare = Number((totalTransactionValue / (sharesTraded || 1)).toFixed(2));
+    const sharesTraded = record.secAcq || 0;
+    const totalTransactionValue = record.secVal || record.tdpVal || 0;
+    const pricePerShare = sharesTraded > 0 ? Number((totalTransactionValue / sharesTraded).toFixed(2)) : 0;
+
+    // Format filing date cleanly to YYYY-MM-DD
+    let formattedDate = record.date;
+    try {
+      if (dateStrNeedsFormat(record.date)) {
+        const d = new Date(record.date);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toISOString().split("T")[0];
+        }
+      }
+    } catch {
+      formattedDate = record.date;
+    }
 
     parsedTrades.push({
-      insiderName: record.acquirerName,
-      executiveRole: record.personCategory,
+      insiderName: record.acquirerName || "Unattributed",
+      executiveRole: record.personCategory || "Designated Person",
       tradeType,
       sharesTraded,
       pricePerShare,
       totalTransactionValue,
-      filingDate: record.date,
+      filingDate: formattedDate,
       market: "IN",
       currency: "INR",
+      sourceUrl: record.xbrl || null,
     });
   }
 
-  // Delete ALL old records for this Indian ticker before inserting fresh data
-  // This ensures generic "TICKER Promoter Group" names get replaced with real executive names
+  // Clear existing rows for this Indian ticker before inserting fresh real records
   const sql = getDb();
   await sql`DELETE FROM insider_trades WHERE ticker = ${cleanSymbol}`;
 
+  // Insert ONLY what the live call returned. If rawRecords is empty, zero rows are inserted!
   const tradesLoaded = await insertTrades(cleanSymbol, parsedTrades, "IN", "INR");
 
   return {
@@ -51,4 +63,9 @@ export async function scrapeNseSymbol(symbol: string): Promise<{
     tradesLoaded,
     filingsProcessed: rawRecords.length,
   };
+}
+
+function dateStrNeedsFormat(str: string): boolean {
+  if (!str) return false;
+  return str.includes("-") && (str.length > 10 || /[a-zA-Z]/.test(str));
 }

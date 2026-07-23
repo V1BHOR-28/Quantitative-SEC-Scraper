@@ -10,6 +10,7 @@ export interface InsiderTrade {
   total_transaction_value: number | null;
   market?: "US" | "IN";
   currency?: "USD" | "INR";
+  source_url?: string | null;
   created_at?: string;
 }
 
@@ -34,6 +35,7 @@ export interface ParsedTrade {
   filingDate: string;
   market?: "US" | "IN";
   currency?: "USD" | "INR";
+  sourceUrl?: string | null;
 }
 
 export interface CompanyOption {
