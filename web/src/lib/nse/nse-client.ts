@@ -18,7 +18,7 @@ export interface NsePitRecord {
 }
 
 // Map Ticker Aliases to Canonical Ticker
-const TICKER_ALIASES: Record<string, string> = {
+export const TICKER_ALIASES: Record<string, string> = {
   SBI: "SBIN",
   SBIN: "SBIN",
   TATA: "TATAMOTORS",
@@ -55,13 +55,12 @@ export async function fetchNseInsiderTrades(symbol: string): Promise<NsePitRecor
 
   const scriptPath = path.join(process.cwd(), "scripts", "fetch_nse_insider.py");
   
-  // Try using Python in scratch/test_env first, fallback to system python
-  const venvPython = path.join(process.cwd(), "..", "scratch", "test_env", "Scripts", "python.exe");
-  const pythonExec = venvPython;
+  // Use standard environment python executable
+  const pythonExec = process.platform === "win32" ? "python" : "python3";
 
   try {
     const { stdout, stderr } = await execFilePromise(pythonExec, [scriptPath, canonicalSymbol], {
-      timeout: 25000,
+      timeout: 20000,
       env: { ...process.env },
     });
 
@@ -82,7 +81,7 @@ export async function fetchNseInsiderTrades(symbol: string): Promise<NsePitRecor
     const rawRecords: any[] = res.records || [];
 
     return rawRecords.map((item) => {
-      const rawName = item.acqName || item.acquirerName || item.personName || "Unknown";
+      const rawName = item.acqName || item.acquirerName || item.personName || "Unattributed";
       const rawRole = item.personCategory || item.secType || "Designated Person";
       const secAcq = Number(item.secAcq || item.buyQuantity || item.sellquantity || 0);
       const secVal = Number(item.secVal || item.buyValue || item.sellValue || item.tdpVal || 0);
@@ -105,7 +104,7 @@ export async function fetchNseInsiderTrades(symbol: string): Promise<NsePitRecor
     });
 
   } catch (err) {
-    console.error(`Failed to execute fetch_nse_insider.py for ${canonicalSymbol}:`, err);
+    console.warn(`Local Python execution unavailable for ${canonicalSymbol} (will read from Neon Postgres):`, err);
     return [];
   }
 }
