@@ -1,48 +1,22 @@
-# SEC Insider Trading Dashboard
+# 🇮🇳 Quantitative Insider Trading & SEBI PIT Anomaly Tracker (NSE & BSE)
 
-Live SEC Form 4 insider trading dashboard built with **Next.js**, **Neon Postgres**, and deployed on **Vercel**.
+> Next.js web application for tracking SEBI PIT insider trading, executive capital flow, and MCA ownership structures across 7,800+ listed Indian equities on NSE and BSE.
 
-## Features
+[![Live Application](https://img.shields.io/badge/Live_App-Vercel-brightgreen?style=for-the-badge&logo=vercel)](https://web-steel-ten-92.vercel.app)
 
-- Search any public company ticker
-- Ingest recent SEC Form 4 filings on demand
-- Store deduplicated trades in Neon Postgres
-- BI-style dashboard with KPI cards, charts, leaderboard, and anomaly table
-
-## Stack
-
-- Next.js App Router
-- Neon Postgres (`@neondatabase/serverless`)
-- Recharts
-- Vercel deployment
-
-## Local development
+## Local Development
 
 ```bash
 cd web
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
-Set these environment variables:
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-- `DATABASE_URL` - Neon pooled connection string
-- `SEC_USER_AGENT` - Your name and email (SEC requirement)
+## Key APIs
 
-## Deploy to Vercel
-
-1. Import the `web` directory as a Vercel project
-2. Add `DATABASE_URL` and `SEC_USER_AGENT` in project settings
-3. Deploy
-
-## API routes
-
-- `GET /api/companies?q=NV` - search tickers
-- `GET /api/trades/[ticker]` - dashboard data
-- `POST /api/scrape` - ingest SEC filings for a ticker
-- `GET /api/cron/refresh` - refresh popular tickers (Vercel cron)
-
-## Legacy Python scraper
-
-The original script is preserved at `../sec_scraper.py`.
+- `GET /api/companies?q=WIPRO` - Search NSE/BSE tickers
+- `GET /api/trades/[ticker]` - Live SEBI PIT insider trades & capital flow stats
+- `POST /api/scrape` - Ingest latest SEBI regulatory filings
+- `GET /api/cron/refresh` - Vercel cron background refresh service
