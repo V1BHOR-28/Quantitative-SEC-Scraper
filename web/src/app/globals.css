@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #141618;
+  --foreground: #f4f6f8;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+  }
+  .glow-text {
+    text-shadow: 0 0 20px rgba(78, 205, 196, 0.4);
+  }
+  .pulse-glow {
+    animation: pulseGlow 2.5s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 10px rgba(0, 212, 255, 0.2); }
+  100% { box-shadow: 0 0 30px rgba(0, 212, 255, 0.6); }
+}
