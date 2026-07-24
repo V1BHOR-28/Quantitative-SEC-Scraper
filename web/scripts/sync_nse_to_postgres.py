@@ -142,7 +142,11 @@ def main():
                 
                 raw_date = r.get("date") or r.get("intimDt") or r.get("acqtoDt")
                 filing_date = parse_date(raw_date)
-                source_url = r.get("xbrl") or None
+                
+                source_url = str(r.get("xbrl") or "").strip()
+                if not source_url or source_url.lower() == "nan" or not source_url.startswith("http"):
+                    logger.warning(f"[{symbol}] Skipping record for '{name}' - missing valid XBRL source URL ('{source_url}')")
+                    continue
 
                 cursor.execute("""
                     INSERT INTO insider_trades (

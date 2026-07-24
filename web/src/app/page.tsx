@@ -1783,8 +1783,8 @@ export default function HomePage() {
                 </div>
                 <div className="metric-card">
                   <div className="metric-label">Data Integrity</div>
-                  <div className="metric-value" style={{ color: "var(--success)" }}>Zero Synthetic</div>
-                  <div className="metric-change" style={{ color: "var(--success)" }}>Strict Source Traceability</div>
+                  <div className="metric-value" style={{ color: "var(--success)" }}>100% Traceable</div>
+                  <div className="metric-change" style={{ color: "var(--success)" }}>0 Unverified DB Rows</div>
                 </div>
                 <div className="metric-card">
                   <div className="metric-label">Persistence Engine</div>

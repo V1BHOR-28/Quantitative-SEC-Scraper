@@ -46,8 +46,14 @@ export async function insertTrades(
   for (const trade of trades) {
     const tradeMarket = trade.market ?? market;
     const tradeCurrency = trade.currency ?? currency;
-    const sourceUrl = trade.sourceUrl ?? null;
+    const sourceUrl = trade.sourceUrl ? trade.sourceUrl.trim() : null;
     const companyName = trade.companyName ?? null;
+
+    // Strict Guard: Reject any trade missing a valid HTTP source URL
+    if (!sourceUrl || sourceUrl.toLowerCase() === "nan" || !sourceUrl.startsWith("http")) {
+      console.warn(`[queries.insertTrades] Skipped untraceable trade for ${ticker} - missing valid source_url (${sourceUrl})`);
+      continue;
+    }
 
     const result = await sql`
       INSERT INTO insider_trades (
