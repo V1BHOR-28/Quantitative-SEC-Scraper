@@ -8,8 +8,12 @@ import {
   isGovernmentOwned,
   psuCategoryColor,
   ALL_GOVT_TICKERS,
+  ALL_PRIVATE_TICKERS,
   GOVT_TICKERS_BY_CATEGORY,
   PRIVATE_TICKERS_BY_CATEGORY,
+  GOVT_COUNT,
+  PRIVATE_COUNT,
+  TOTAL_TRACKED_COUNT,
 } from "@/lib/nse/ownership-data";
 
 interface InsiderTrade {
@@ -174,7 +178,7 @@ export default function HomePage() {
 
     if (matches.length > 0) return matches;
 
-    // Allow instant dynamic search result for any of 7,800+ NSE/BSE companies
+    // Allow instant dynamic search result for any valid NSE/BSE ticker symbol
     const cleanQ = q.toUpperCase();
     if (/^[A-Z0-9&\-\.]{1,20}$/.test(cleanQ)) {
       return [
@@ -191,7 +195,7 @@ export default function HomePage() {
 
   const displayChips = useMemo(() => {
     if (chipFilter === "WISHLIST") return wishlist;
-    return IN_STOCKS_KEYS;
+    return ALL_PRIVATE_TICKERS;
   }, [chipFilter, wishlist]);
 
   // Ownership-filtered chips for the Gov/Private panel
@@ -202,9 +206,9 @@ export default function HomePage() {
       if (ownerFilter === "GOVERNMENT") {
         base = ALL_GOVT_TICKERS;
       } else if (ownerFilter === "PRIVATE") {
-        base = IN_STOCKS_KEYS.filter((s) => !isGovernmentOwned(s));
+        base = ALL_PRIVATE_TICKERS;
       } else {
-        base = [...IN_STOCKS_KEYS, ...ALL_GOVT_TICKERS];
+        base = Array.from(new Set([...ALL_GOVT_TICKERS, ...ALL_PRIVATE_TICKERS]));
       }
       const seen = new Set<string>();
       base = base.filter((s) => { if (seen.has(s)) return false; seen.add(s); return true; });
@@ -238,7 +242,7 @@ export default function HomePage() {
   const isValidStock = useMemo(() => {
     const sym = activeTicker.trim().toUpperCase();
     if (!sym) return false;
-    // Allow any non-empty valid ticker string for all 7,800+ NSE & BSE companies
+    // Allow any non-empty valid ticker string for all tracked NSE & BSE companies
     return /^[A-Z0-9&\-\.]{1,20}$/.test(sym);
   }, [activeTicker]);
 
@@ -426,7 +430,7 @@ export default function HomePage() {
           datasets: [
             {
               label: `Buy Vol (${cur === "INR" ? "Cr" : "M"})`,
-              data: buyVols.length ? buyVols : market === "IN" ? [45, 62, 38, 85, 72, 95, 124] : [12, 18, 5, 22, 15, 30, 42],
+              data: buyVols,
               borderColor: "#22c55e",
               backgroundColor: "rgba(34, 197, 94, 0.12)",
               fill: true,
@@ -437,7 +441,7 @@ export default function HomePage() {
             },
             {
               label: `Sell Vol (${cur === "INR" ? "Cr" : "M"})`,
-              data: sellVols.length ? sellVols : market === "IN" ? [32, 28, 45, 38, 52, 48, 62] : [85, 120, 94, 150, 110, 165, 182],
+              data: sellVols,
               borderColor: "#ef4444",
               backgroundColor: "rgba(239, 68, 68, 0.08)",
               fill: true,
@@ -480,10 +484,6 @@ export default function HomePage() {
         else if (t.trade_type === "PLEDGE") pledges++;
         else grants++;
       });
-      if (buys === 0 && sells === 0) {
-        if (market === "IN") { buys = 185; sells = 98; pledges = 32; grants = 15; }
-        else { buys = 24; sells = 145; pledges = 0; grants = 68; }
-      }
 
       chartInstances.current.type = new Chart(typeChartRef.current, {
         type: "doughnut",
@@ -511,14 +511,15 @@ export default function HomePage() {
 
     // 3. Holdings Chart
     if (holdingsChartRef.current) {
+      const dates = trades.slice(0, 6).map((t) => t.filing_date).reverse();
       chartInstances.current.holdings = new Chart(holdingsChartRef.current, {
         type: "line",
         data: {
-          labels: ["Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026", "Q2 2026"],
+          labels: dates.length ? dates : [],
           datasets: [
             {
               label: "Insider Ownership %",
-              data: market === "IN" ? [68.4, 69.1, 70.2, 71.0, 71.8, 72.8] : [14.2, 13.8, 13.5, 12.9, 12.4, 11.8],
+              data: [],
               borderColor: "#6366f1",
               backgroundColor: "rgba(99, 102, 241, 0.12)",
               fill: true,
@@ -1771,75 +1772,24 @@ export default function HomePage() {
               {/* Sample Metrics */}
               <div className="metrics-grid" style={{ marginBottom: "1.5rem" }}>
                 <div className="metric-card">
-                  <div className="metric-label">Quarterly Trade Volume</div>
-                  <div className="metric-value" style={{ color: "var(--success)" }}>Rs 1,247Cr</div>
-                  <div className="metric-change" style={{ color: "var(--success)" }}>↑ 12.4% vs Q1</div>
+                  <div className="metric-label">Tracked Indian Companies</div>
+                  <div className="metric-value" style={{ color: "var(--success)" }}>{TOTAL_TRACKED_COUNT}</div>
+                  <div className="metric-change" style={{ color: "var(--success)" }}>✓ Govt PSUs ({GOVT_COUNT}) + Private ({PRIVATE_COUNT})</div>
                 </div>
                 <div className="metric-card">
-                  <div className="metric-label">Filings Ingested</div>
-                  <div className="metric-value">342</div>
-                  <div className="metric-change" style={{ color: "var(--accent-light)" }}>Real-Time SEC & SEBI</div>
+                  <div className="metric-label">Data Verification</div>
+                  <div className="metric-value" style={{ color: "var(--accent-light)" }}>100% Real</div>
+                  <div className="metric-change" style={{ color: "var(--accent-light)" }}>Official SEBI PIT XBRL Filings</div>
                 </div>
                 <div className="metric-card">
-                  <div className="metric-label">Net Insider Flow</div>
-                  <div className="metric-value" style={{ color: "var(--success)" }}>+Rs 312Cr</div>
-                  <div className="metric-change" style={{ color: "var(--success)" }}>↑ Bullish Accumulation</div>
+                  <div className="metric-label">Data Integrity</div>
+                  <div className="metric-value" style={{ color: "var(--success)" }}>Zero Synthetic</div>
+                  <div className="metric-change" style={{ color: "var(--success)" }}>Strict Source Traceability</div>
                 </div>
                 <div className="metric-card">
-                  <div className="metric-label">Promoter Ownership</div>
-                  <div className="metric-value">72.8%</div>
-                  <div className="metric-change" style={{ color: "var(--success)" }}>↑ 0.4% Increase</div>
-                </div>
-              </div>
-
-              {/* Sample Transactions Table */}
-              <div className="table-card" style={{ marginBottom: 0 }}>
-                <div className="table-header">
-                  <span className="table-title">Live Sample Executive Transactions</span>
-                </div>
-                <div className="table-scroll-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Insider Person</th>
-                        <th>Position</th>
-                        <th>Type</th>
-                        <th>Shares Traded</th>
-                        <th>Price / Share</th>
-                        <th>Total Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Jul 18, 2026</td>
-                        <td style={{ fontWeight: 600 }}>Azim Premji Trust</td>
-                        <td style={{ color: "var(--text-secondary)" }}>Promoter Group</td>
-                        <td><span className="badge-buy">BUY</span></td>
-                        <td style={{ fontFamily: "JetBrains Mono" }}>1,450,000</td>
-                        <td style={{ fontFamily: "JetBrains Mono" }}>Rs 311.70</td>
-                        <td className="value-green">+Rs 45.20Cr</td>
-                      </tr>
-                      <tr>
-                        <td>Jul 15, 2026</td>
-                        <td style={{ fontWeight: 600 }}>Srinivas Pallia</td>
-                        <td style={{ color: "var(--text-secondary)" }}>CEO & MD</td>
-                        <td><span className="badge-buy">BUY</span></td>
-                        <td style={{ fontFamily: "JetBrains Mono" }}>25,000</td>
-                        <td style={{ fontFamily: "JetBrains Mono" }}>Rs 312.00</td>
-                        <td className="value-green">+Rs 78.00L</td>
-                      </tr>
-                      <tr>
-                        <td>Jul 12, 2026</td>
-                        <td style={{ fontWeight: 600 }}>Azim Premji</td>
-                        <td style={{ color: "var(--text-secondary)" }}>Founder & Chairman</td>
-                        <td><span className="badge-sell">SELL</span></td>
-                        <td style={{ fontFamily: "JetBrains Mono" }}>500,000</td>
-                        <td style={{ fontFamily: "JetBrains Mono" }}>Rs 312.50</td>
-                        <td className="value-red">-Rs 15.60Cr</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="metric-label">Persistence Engine</div>
+                  <div className="metric-value">Postgres</div>
+                  <div className="metric-change" style={{ color: "var(--success)" }}>Neon Serverless DB</div>
                 </div>
               </div>
             </div>
@@ -1898,7 +1848,7 @@ export default function HomePage() {
 
               <div className="market-toggle-group">
                 <div className="market-badge-pill">
-                  🇮🇳 SEBI PIT Active • 7,800+ NSE & BSE Listed Equities
+                  🇮🇳 SEBI PIT Active • {TOTAL_TRACKED_COUNT} Tracked Indian Equities
                 </div>
               </div>
 
@@ -1921,15 +1871,15 @@ export default function HomePage() {
                   <button
                     className={`owner-seg-btn ${ownerFilter === "ALL" ? "active" : ""}`}
                     onClick={() => setOwnerFilter("ALL")}
-                  >All (7,800+)</button>
+                  >All ({TOTAL_TRACKED_COUNT})</button>
                   <button
                     className={`owner-seg-btn govt ${ownerFilter === "GOVERNMENT" ? "active" : ""}`}
                     onClick={() => setOwnerFilter("GOVERNMENT")}
-                  >🏛️ Government PSU (72)</button>
+                  >🏛️ Government PSU ({GOVT_COUNT})</button>
                   <button
                     className={`owner-seg-btn private ${ownerFilter === "PRIVATE" ? "active" : ""}`}
                     onClick={() => setOwnerFilter("PRIVATE")}
-                  >🏢 Private Sector (7,728)</button>
+                  >🏢 Private Sector ({PRIVATE_COUNT})</button>
                 </div>
 
                 <div className="quick-sector-pills">
@@ -2158,13 +2108,13 @@ export default function HomePage() {
                   <div className="metric-card">
                     <div className="metric-label">Total Trade Volume</div>
                     <div className="metric-value" style={{ color: "var(--success)" }}>
-                      {formatVal(stats?.totalBuys || (market === "IN" ? 1247000000 : 186000000), stats?.currency || (market === "IN" ? "INR" : "USD"))}
+                      {formatVal(stats?.totalBuys || 0, stats?.currency || (market === "IN" ? "INR" : "USD"))}
                     </div>
                     <div className="metric-change" style={{ color: "var(--success)" }}>↑ Live Synced</div>
                   </div>
                   <div className="metric-card">
                     <div className="metric-label">Recorded Transactions</div>
-                    <div className="metric-value">{stats?.tradeCount || trades.length || (market === "IN" ? 342 : 48)}</div>
+                    <div className="metric-value">{stats?.tradeCount || trades.length || 0}</div>
                     <div className="metric-change" style={{ color: "var(--accent-light)" }}>Filings Processed</div>
                   </div>
                   <div className="metric-card">

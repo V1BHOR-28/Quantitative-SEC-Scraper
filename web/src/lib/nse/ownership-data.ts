@@ -198,3 +198,19 @@ export const PRIVATE_TICKERS_BY_CATEGORY: Record<string, { label: string; color:
   },
 };
 
+/** All unique private sector tickers */
+export const ALL_PRIVATE_TICKERS = Array.from(
+  new Set(Object.values(PRIVATE_TICKERS_BY_CATEGORY).flatMap((g) => g.tickers))
+);
+
+/** All unique tracked tickers (Govt + Private) */
+export const ALL_TRACKED_TICKERS = Array.from(
+  new Set([...ALL_GOVT_TICKERS, ...ALL_PRIVATE_TICKERS])
+);
+
+/** Dynamic exact counts */
+export const GOVT_COUNT = ALL_GOVT_TICKERS.length;
+export const PRIVATE_COUNT = ALL_PRIVATE_TICKERS.length;
+export const TOTAL_TRACKED_COUNT = ALL_TRACKED_TICKERS.length;
+
+
