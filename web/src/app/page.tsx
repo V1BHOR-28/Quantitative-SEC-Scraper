@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import Chart from "chart.js/auto";
-import { NSE_DIRECTORY } from "@/lib/nse/nse-lookup";
+import { NSE_NAME_FALLBACKS } from "@/lib/nse/nse-lookup";
 import {
   getOwnership,
   isGovernmentOwned,
@@ -156,11 +156,11 @@ export default function HomePage() {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.trim().toLowerCase();
 
-    const allIn = NSE_DIRECTORY.map((c) => ({
-      ticker: c.ticker,
-      name: c.name,
+    const allIn = Object.entries(NSE_NAME_FALLBACKS).map(([ticker, name]) => ({
+      ticker,
+      name,
       market: "IN" as const,
-      sector: STOCK_LOOKUP[c.ticker]?.sector || "NSE / BSE Equity",
+      sector: STOCK_LOOKUP[ticker]?.sector || "NSE / BSE Equity",
     }));
 
     const matches = allIn
@@ -323,10 +323,10 @@ export default function HomePage() {
     const sym = activeTicker.toUpperCase();
     const found = STOCK_LOOKUP[sym];
     if (found) return found;
-    const nseFound = NSE_DIRECTORY.find((c) => c.ticker === sym);
-    if (nseFound) {
+    const fallbackName = NSE_NAME_FALLBACKS[sym];
+    if (fallbackName) {
       return {
-        name: nseFound.name,
+        name: fallbackName,
         exch: `NSE: ${sym}`,
         sector: "NSE / BSE Equity",
         market: "IN" as const,

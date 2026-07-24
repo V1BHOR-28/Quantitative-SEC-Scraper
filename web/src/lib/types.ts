@@ -1,6 +1,7 @@
 export interface InsiderTrade {
   trade_id: number;
   ticker: string;
+  company_name?: string | null;
   filing_date: string;
   insider_name: string;
   executive_role: string | null;
@@ -33,6 +34,7 @@ export interface ParsedTrade {
   pricePerShare: number;
   totalTransactionValue: number;
   filingDate: string;
+  companyName?: string | null;
   market?: "US" | "IN";
   currency?: "USD" | "INR";
   sourceUrl?: string | null;

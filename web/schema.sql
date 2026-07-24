@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS insider_trades (
     trade_id SERIAL PRIMARY KEY,
     ticker VARCHAR(20) NOT NULL,
+    company_name VARCHAR(255),
     filing_date DATE NOT NULL,
     insider_name VARCHAR(255) NOT NULL,
     executive_role VARCHAR(100),
@@ -10,6 +11,7 @@ CREATE TABLE IF NOT EXISTS insider_trades (
     total_transaction_value NUMERIC(15, 2),
     market VARCHAR(5) DEFAULT 'US',
     currency VARCHAR(5) DEFAULT 'USD',
+    source_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_transaction UNIQUE (ticker, filing_date, insider_name, shares_traded, price_per_share)
 );

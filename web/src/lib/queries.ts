@@ -8,6 +8,7 @@ export async function ensureSchema(): Promise<void> {
     CREATE TABLE IF NOT EXISTS insider_trades (
       trade_id SERIAL PRIMARY KEY,
       ticker VARCHAR(20) NOT NULL,
+      company_name VARCHAR(255),
       filing_date DATE NOT NULL,
       insider_name VARCHAR(255) NOT NULL,
       executive_role VARCHAR(100),
@@ -23,6 +24,7 @@ export async function ensureSchema(): Promise<void> {
     )
   `;
   await sql`ALTER TABLE insider_trades ALTER COLUMN ticker TYPE VARCHAR(20)`;
+  await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS market VARCHAR(5) DEFAULT 'US'`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS currency VARCHAR(5) DEFAULT 'USD'`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS source_url TEXT`;
@@ -45,15 +47,17 @@ export async function insertTrades(
     const tradeMarket = trade.market ?? market;
     const tradeCurrency = trade.currency ?? currency;
     const sourceUrl = trade.sourceUrl ?? null;
+    const companyName = trade.companyName ?? null;
 
     const result = await sql`
       INSERT INTO insider_trades (
-        ticker, filing_date, insider_name, executive_role,
+        ticker, company_name, filing_date, insider_name, executive_role,
         trade_type, shares_traded, price_per_share, total_transaction_value,
         market, currency, source_url
       )
       VALUES (
         ${ticker},
+        ${companyName},
         ${trade.filingDate},
         ${trade.insiderName},
         ${trade.executiveRole},
@@ -79,7 +83,7 @@ export async function getTradesByTicker(ticker: string): Promise<InsiderTrade[]>
   const sql = getDb();
   const rows = await sql`
     SELECT
-      trade_id, ticker, filing_date::text, insider_name, executive_role,
+      trade_id, ticker, company_name, filing_date::text, insider_name, executive_role,
       trade_type, shares_traded, price_per_share, total_transaction_value,
       market, currency, source_url, created_at::text
     FROM insider_trades
@@ -125,4 +129,37 @@ export async function getTradeStats(ticker: string): Promise<TradeStats> {
     market: (row?.market as "US" | "IN") ?? "US",
     currency: (row?.currency as "USD" | "INR") ?? "USD",
   };
+}
+
+export async function getScrapedNseCompanies(
+  query: string,
+  limit = 20
+): Promise<{ ticker: string; name: string; market: "IN" }[]> {
+  const sql = getDb();
+  const q = query.trim();
+  const pattern = `%${q}%`;
+
+  const rows = await sql`
+    SELECT
+      ticker,
+      COALESCE(MAX(company_name), ticker) AS name,
+      MAX(filing_date) as last_filing_date,
+      COUNT(*)::int as trade_count
+    FROM insider_trades
+    WHERE market = 'IN'
+      AND (
+        ${q} = '' OR
+        ticker ILIKE ${pattern} OR
+        company_name ILIKE ${pattern}
+      )
+    GROUP BY ticker
+    ORDER BY MAX(filing_date) DESC, COUNT(*) DESC
+    LIMIT ${limit}
+  `;
+
+  return rows.map((r) => ({
+    ticker: (r.ticker as string).toUpperCase(),
+    name: (r.name as string) || (r.ticker as string).toUpperCase(),
+    market: "IN" as const,
+  }));
 }

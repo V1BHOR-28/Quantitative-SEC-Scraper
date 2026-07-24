@@ -36,6 +36,28 @@ def parse_date(date_str):
             
     return clean_str[:10]
 
+def safe_float(val):
+    if not val:
+        return 0.0
+    s = str(val).strip().replace(',', '')
+    if s == '-' or not s:
+        return 0.0
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
+def safe_int(val):
+    if not val:
+        return 0
+    s = str(val).strip().replace(',', '')
+    if s == '-' or not s:
+        return 0
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return 0
+
 def main():
     parser = argparse.ArgumentParser(description="Sync official live SEBI PIT disclosures from pnsea directly into Neon Postgres")
     parser.add_argument("tickers", nargs="*", help="Tickers to sync (default: popular Indian tickers)")
@@ -59,11 +81,12 @@ def main():
     conn = psycopg2.connect(db_url)
     cursor = conn.cursor()
 
-    # Ensure insider_trades table & source_url column exist
+    # Ensure insider_trades table, company_name & source_url columns exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS insider_trades (
             trade_id SERIAL PRIMARY KEY,
             ticker VARCHAR(20) NOT NULL,
+            company_name VARCHAR(255),
             filing_date DATE NOT NULL,
             insider_name VARCHAR(255) NOT NULL,
             executive_role VARCHAR(100),
@@ -77,6 +100,7 @@ def main():
             created_at TIMESTAMPTZ DEFAULT NOW(),
             CONSTRAINT unique_transaction UNIQUE (ticker, filing_date, insider_name, shares_traded, price_per_share)
         );
+        ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
         ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS source_url TEXT;
         ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS market VARCHAR(5) DEFAULT 'US';
         ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS currency VARCHAR(5) DEFAULT 'USD';
@@ -104,11 +128,12 @@ def main():
             
             inserted_count = 0
             for r in records:
+                company_name = str(r.get("company") or r.get("companyName") or symbol).strip()
                 name = str(r.get("acqName") or r.get("acquirerName") or r.get("personName") or "Unattributed").strip()
                 role = str(r.get("personCategory") or r.get("secType") or "Designated Person").strip()
                 
-                sec_acq = int(float(r.get("secAcq") or r.get("buyQuantity") or r.get("sellquantity") or 0))
-                sec_val = float(r.get("secVal") or r.get("buyValue") or r.get("sellValue") or r.get("tdpVal") or 0)
+                sec_acq = safe_int(r.get("secAcq") or r.get("buyQuantity") or r.get("sellquantity"))
+                sec_val = safe_float(r.get("secVal") or r.get("buyValue") or r.get("sellValue") or r.get("tdpVal"))
                 price_per_share = round(sec_val / sec_acq, 2) if sec_acq > 0 else 0.0
                 
                 action_str = str(r.get("tdpTransactionType") or r.get("acqMode") or "").lower()
@@ -121,15 +146,15 @@ def main():
 
                 cursor.execute("""
                     INSERT INTO insider_trades (
-                        ticker, filing_date, insider_name, executive_role,
+                        ticker, company_name, filing_date, insider_name, executive_role,
                         trade_type, shares_traded, price_per_share, total_transaction_value,
                         market, currency, source_url
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT ON CONSTRAINT unique_transaction DO NOTHING
                     RETURNING trade_id
                 """, (
-                    symbol, filing_date, name, role,
+                    symbol, company_name, filing_date, name, role,
                     trade_type, sec_acq, price_per_share, sec_val,
                     'IN', 'INR', source_url
                 ))
@@ -139,7 +164,7 @@ def main():
 
             conn.commit()
             total_inserted_all += inserted_count
-            logger.info(f"[SUCCESS] {symbol}: Inserted {inserted_count} real records into Neon Postgres.")
+            logger.info(f"[SUCCESS] {symbol}: Inserted {inserted_count} real records into Neon Postgres with company name '{company_name}'.")
 
         except Exception as ex:
             logger.error(f"Error processing {symbol}: {ex}", exc_info=True)
