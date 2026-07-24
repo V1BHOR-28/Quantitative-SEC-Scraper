@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS insider_trades (
     total_transaction_value NUMERIC(15, 2),
     market VARCHAR(5) DEFAULT 'US',
     currency VARCHAR(5) DEFAULT 'USD',
-    source_url TEXT,
+    source_url TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_transaction UNIQUE (ticker, filing_date, insider_name, shares_traded, price_per_share)
 );

@@ -18,7 +18,7 @@ export async function ensureSchema(): Promise<void> {
       total_transaction_value NUMERIC(15, 2),
       market VARCHAR(5) DEFAULT 'US',
       currency VARCHAR(5) DEFAULT 'USD',
-      source_url TEXT,
+      source_url TEXT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       CONSTRAINT unique_transaction UNIQUE (ticker, filing_date, insider_name, shares_traded, price_per_share)
     )
@@ -28,6 +28,7 @@ export async function ensureSchema(): Promise<void> {
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS market VARCHAR(5) DEFAULT 'US'`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS currency VARCHAR(5) DEFAULT 'USD'`;
   await sql`ALTER TABLE insider_trades ADD COLUMN IF NOT EXISTS source_url TEXT`;
+  await sql`ALTER TABLE insider_trades ALTER COLUMN source_url SET NOT NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_insider_trades_ticker ON insider_trades (ticker)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_insider_trades_filing_date ON insider_trades (filing_date DESC)`;
 }
@@ -168,4 +169,27 @@ export async function getScrapedNseCompanies(
     name: (r.name as string) || (r.ticker as string).toUpperCase(),
     market: "IN" as const,
   }));
+}
+
+export async function getDatabaseMetrics(): Promise<{
+  totalTrades: number;
+  unverifiedCount: number;
+}> {
+  try {
+    const sql = getDb();
+    const result = await sql`
+      SELECT
+        COUNT(*)::int as total_trades,
+        COUNT(CASE WHEN source_url IS NULL OR source_url = '' OR source_url NOT LIKE 'http%' THEN 1 END)::int as unverified_count
+      FROM insider_trades
+    `;
+    const row = result[0] || { total_trades: 0, unverified_count: 0 };
+    return {
+      totalTrades: row.total_trades ?? 0,
+      unverifiedCount: row.unverified_count ?? 0,
+    };
+  } catch (error) {
+    console.error("Error querying database metrics:", error);
+    return { totalTrades: 0, unverifiedCount: 0 };
+  }
 }

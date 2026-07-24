@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import { ensureSchema } from "@/lib/queries";
 import { scrapeTicker } from "@/lib/sec/scraper";
-import { scrapeNseSymbol } from "@/lib/nse/nse-scraper";
-import { getNseCompanyBySymbol, isIndianTicker } from "@/lib/nse/nse-lookup";
+import { isIndianTicker } from "@/lib/nse/nse-lookup";
 import { getCompanyByTicker } from "@/lib/sec/cik-lookup";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  // Authentication check
+  const authHeader = request.headers.get("authorization") || request.headers.get("x-api-key");
+  const secret = process.env.CRON_SECRET || process.env.SCRAPE_SECRET;
+
+  if (secret && authHeader !== `Bearer ${secret}` && authHeader !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as { ticker?: string; market?: "US" | "IN" };
     const ticker = body.ticker?.trim().toUpperCase();
@@ -19,7 +26,6 @@ export async function POST(request: Request) {
 
     await ensureSchema();
 
-    // Auto-detect market if not explicitly passed or if ticker is known Indian stock
     if (!market || market !== "IN") {
       const isInd = await isIndianTicker(ticker);
       const isUs = await getCompanyByTicker(ticker).catch(() => null);
@@ -29,19 +35,16 @@ export async function POST(request: Request) {
       }
     }
 
-    let result;
     if (market === "IN") {
-      result = await scrapeNseSymbol(ticker);
-    } else {
-      try {
-        result = await scrapeTicker(ticker);
-      } catch (secErr) {
-        // Fallback to NSE scraper if SEC CIK lookup fails for this ticker
-        console.warn(`SEC scrape failed for ${ticker}, attempting NSE scrape fallback:`, secErr);
-        result = await scrapeNseSymbol(ticker);
-      }
+      return NextResponse.json({
+        ticker,
+        market: "IN",
+        message: "Indian market disclosures are synced asynchronously via GitHub Actions scheduled pipeline.",
+        trades: []
+      });
     }
 
+    const result = await scrapeTicker(ticker);
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

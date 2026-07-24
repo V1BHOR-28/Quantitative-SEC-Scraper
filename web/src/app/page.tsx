@@ -249,6 +249,14 @@ export default function HomePage() {
   // Live Data State
   const [trades, setTrades] = useState<InsiderTrade[]>([]);
   const [stats, setStats] = useState<TradeStats | null>(null);
+  const [dbMetrics, setDbMetrics] = useState<{ totalTrades: number; unverifiedCount: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/metrics")
+      .then((res) => res.json())
+      .then((data) => setDbMetrics(data))
+      .catch((err) => console.warn("Failed to fetch DB metrics:", err));
+  }, []);
 
   // Chart canvas refs
   const volumeChartRef = useRef<HTMLCanvasElement | null>(null);
@@ -1783,8 +1791,12 @@ export default function HomePage() {
                 </div>
                 <div className="metric-card">
                   <div className="metric-label">Data Integrity</div>
-                  <div className="metric-value" style={{ color: "var(--success)" }}>100% Traceable</div>
-                  <div className="metric-change" style={{ color: "var(--success)" }}>0 Unverified DB Rows</div>
+                  <div className="metric-value" style={{ color: dbMetrics?.unverifiedCount === 0 ? "var(--success)" : "var(--danger)" }}>
+                    {dbMetrics ? (dbMetrics.unverifiedCount === 0 ? "100% Traceable" : "Unverified Data") : "100% Traceable"}
+                  </div>
+                  <div className="metric-change" style={{ color: dbMetrics?.unverifiedCount === 0 ? "var(--success)" : "var(--danger)" }}>
+                    {dbMetrics ? `${dbMetrics.unverifiedCount} Unverified DB Rows` : "0 Unverified DB Rows"}
+                  </div>
                 </div>
                 <div className="metric-card">
                   <div className="metric-label">Persistence Engine</div>

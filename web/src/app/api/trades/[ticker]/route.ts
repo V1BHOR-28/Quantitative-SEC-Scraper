@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getTradeStats, getTradesByTicker } from "@/lib/queries";
 import { isIndianTicker } from "@/lib/nse/nse-lookup";
-import { scrapeNseSymbol } from "@/lib/nse/nse-scraper";
 
 export async function GET(
   _request: Request,
@@ -17,12 +16,9 @@ export async function GET(
 
     const isInd = await isIndianTicker(normalized);
 
-    // If no stored trades exist in Postgres yet for this ticker, trigger initial ingestion
+    // Read exclusively from Postgres. If zero rows exist for an Indian ticker, return honest empty state immediately
     if (isInd && trades.length === 0) {
-      console.log(`Initial ingestion of live SEBI PIT disclosures for ${normalized}...`);
-      await scrapeNseSymbol(normalized);
-      trades = await getTradesByTicker(normalized);
-      stats = await getTradeStats(normalized);
+      console.log(`[trades/${normalized}] No stored SEBI PIT disclosures in Postgres (honest empty state).`);
     } else if (!isInd && trades.length === 0) {
       console.log(`Initial ingestion of SEC Form 4 US data for ${normalized}...`);
       try {
